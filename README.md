@@ -37,4 +37,14 @@ PID namespace, and restore the processes into that empty new PID namespace.
 
 ## cgroups
 
+It **appears** that CRIU is fetching a list of, among other things, named pipes,
+or UNIX IPC streams, through interrogating the freezed process's cgroups. I don't
+really understand how this works yet, so this will be the immediate object my work,
+as the CRIU dump logs terminate on the various named pipes, and there is little
+documentation to help figure out how to move forward.
+
 ## capabilities?
+
+Restoring a CRIU dump requires `CAP_SYSADMIN` capabilities, which are available to
+`root`. However, it should be possible to set / stick that capability to any random
+binary run by a non-`root` user. Worth looking at.
