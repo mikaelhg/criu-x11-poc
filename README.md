@@ -14,6 +14,16 @@ do its job predictably every time.
 Set `-XX:-UsePerfData` so that the JVM won't create the perf data directories and files
 which sometimes get cleaned up, and will block the restoration of the process.
 
+## Running JVM AWT programs with X11 and Xvfb
+
+AWT will terminate the JVM process, if an active X11 session goes away from under it.
+
+If you try to restore a process which has lost its X11 session in this way,
+the restore will be successful, but the process will immediately die.
+
+The solution is to start a separate Xvfb process for each AWT process, push them into
+the same PID namespace, and freeze the parent process of both Xvfb and the JVM.
+
 ## namespaces
 
 When CRIU restores a process from disk to memory, it tells the Linux kernel to recreate
