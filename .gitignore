@@ -1,0 +1,19 @@
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle build output directory
+build
+
+^target/
+/target/
+/.idea
+/*.iml
+/nb-configuration.xml
+/.project
+/.classpath
+/.settings/
+/.gradle/
+node_modules/
+/dump.*
+/application-default.yml
+node_modules/
