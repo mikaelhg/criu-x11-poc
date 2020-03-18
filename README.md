@@ -32,6 +32,19 @@ java -jar build/libs/criu-x11-poc-1.0-SNAPSHOT-all.jar \
     > /dev/null 2> /dev/null < /dev/null &
 ```
 
+## process groups
+
+The process which we dump should NOT be a process group leader. We can use the
+`setsid` command to set a new process group leader.
+
+```text
+ | unshare (set namespace)
+ \- setsid 1 (create independent process group leader)
+  \- bash 2 (dump this)
+   |- Xvfb 3
+   |- java 4
+```
+
 ## namespaces
 
 When CRIU restores a process from disk to memory, it tells the Linux kernel to recreate
