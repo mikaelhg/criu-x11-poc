@@ -24,6 +24,14 @@ the restore will be successful, but the process will immediately die.
 The solution is to start a separate Xvfb process for each AWT process, push them into
 the same PID namespace, and freeze the parent process of both Xvfb and the JVM.
 
+```bash
+setsid bash
+Xvfb :1 -screen 0 1024x768x24 +extension GLX +render -noreset \
+    > /dev/null 2> /dev/null < /dev/null &
+java -jar build/libs/criu-x11-poc-1.0-SNAPSHOT-all.jar \
+    > /dev/null 2> /dev/null < /dev/null &
+```
+
 ## namespaces
 
 When CRIU restores a process from disk to memory, it tells the Linux kernel to recreate
@@ -34,6 +42,19 @@ However, the Linux kernel might have given that PID to some other process meanwh
 The solution to this potential PID conflict is to create a separate PID namespace,
 where processes can have the same PIDs as already existing processes have in the parent
 PID namespace, and restore the processes into that empty new PID namespace.
+
+```
+sudo -E unshare --pid --ipc --mount --cgroup --mount-proc --fork -S 1000 -G 1000 bash
+
+ps -eo cgroup,ppid,pid,user,cmd
+
+sudo nsenter -a -t $NEW_PID bash
+sudo -E nsenter -a -S 1000 -G 1000 -t $NEW_PID bash
+
+criu dump -t 448226 -D /tmp/5 -vvv -o dump.log --shell-job --tcp-established && echo OK
+criu restore -d -D /tmp/5 -vvv -o restore.log --tcp-established --shell-job && echo OK
+
+```
 
 ## cgroups
 
