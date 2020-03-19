@@ -25,11 +25,36 @@ The solution is to start a separate Xvfb process for each AWT process, push them
 the same PID namespace, and freeze the parent process of both Xvfb and the JVM.
 
 ```bash
-setsid bash
+sudo -E unshare --pid --ipc --mount --cgroup --mount-proc --fork bash
+setsid -f ./start_app.sh &
+
+criu dump -t 3964 -D /tmp/5 -v4 -o dump.log --external 'tty[8800:17]' --shell-job --ext-unix-sk --tcp-established && echo OK
+
+criu restore -d -D /tmp/5 -v4 -o restore.log --inherit-fd 'fd[1]:tty[8800:17]' --shell-job --ext-unix-sk --tcp-established && echo OK
+
 Xvfb :1 -screen 0 1024x768x24 +extension GLX +render -noreset \
     > /dev/null 2> /dev/null < /dev/null &
 java -jar build/libs/criu-x11-poc-1.0-SNAPSHOT-all.jar \
     > /dev/null 2> /dev/null < /dev/null &
+```
+
+## external TTYs
+
+https://criu.org/Inheriting_FDs_on_restore#External_TTYs
+
+```
+$ ipython
+In [1]: import os
+In [2]: st = os.stat("/proc/self/fd/0")
+In [3]: print "tty[%x:%x]" % (st.st_rdev, st.st_dev)
+tty:[8800:d]
+
+$ps -C sleep
+  PID TTY          TIME CMD
+ 4109 ?        00:00:00 sleep
+
+$ ./criu dump --external 'tty[8800:d]' -D imgs -v4 -t 4109
+$ ./criu restore --inherit-fd 'fd[1]:tty[8800:d]' -D imgs -v4
 ```
 
 ## process groups
