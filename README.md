@@ -24,14 +24,78 @@ the restore will be successful, but the process will immediately die.
 The solution is to start a separate Xvfb process for each AWT process, push them into
 the same PID namespace, and freeze the parent process of both Xvfb and the JVM.
 
+## Demo
+
+#### 1\. Fork a new, isolated, bash process 
+
+Start a new isolated shell, and check its namespaces.
+
 ```bash
 sudo -E unshare --pid --ipc --mount --cgroup --mount-proc --fork bash
+
+lsns
+        NS TYPE   NPROCS PID USER COMMAND
+4026531837 user        3   1 root bash
+4026531838 uts         3   1 root bash
+4026532463 mnt         3   1 root bash
+4026532465 ipc         3   1 root bash
+4026532473 pid         3   1 root bash
+4026532474 cgroup      3   1 root bash
+4026532476 net         3   1 root bash
+
+ls -Flah /proc/$$/ns
+total 0
+dr-x--x--x 2 root root 0 maalis 22 19:00 ./
+dr-xr-xr-x 9 root root 0 maalis 22 18:16 ../
+lrwxrwxrwx 1 root root 0 maalis 22 19:03 cgroup -> 'cgroup:[4026532474]'
+lrwxrwxrwx 1 root root 0 maalis 22 19:03 ipc -> 'ipc:[4026532465]'
+lrwxrwxrwx 1 root root 0 maalis 22 19:03 mnt -> 'mnt:[4026532463]'
+lrwxrwxrwx 1 root root 0 maalis 22 19:00 net -> 'net:[4026532476]'
+lrwxrwxrwx 1 root root 0 maalis 22 19:03 pid -> 'pid:[4026532473]'
+lrwxrwxrwx 1 root root 0 maalis 22 19:08 pid_for_children -> 'pid:[4026532473]'
+lrwxrwxrwx 1 root root 0 maalis 22 19:03 user -> 'user:[4026531837]'
+lrwxrwxrwx 1 root root 0 maalis 22 19:03 uts -> 'uts:[4026531838]'
+```
+
+And from a different terminal that's not inside those new namespaces:
+
+```bash
+sudo lsns | grep bash
+4026532463 mnt         2 1658585 root             unshare --pid --ipc --net --mount --cgroup --propagation private --mount-proc --fork bash
+4026532465 ipc         2 1658585 root             unshare --pid --ipc --net --mount --cgroup --propagation private --mount-proc --fork bash
+4026532473 pid         1 1658586 root             bash
+4026532474 cgroup      2 1658585 root             unshare --pid --ipc --net --mount --cgroup --propagation private --mount-proc --fork bash
+4026532476 net         2 1658585 root             unshare --pid --ipc --net --mount --cgroup --propagation private --mount-proc --fork bash
+```
+
+#### 2\. Fork a new process group leader bash process
+
+Which in turn runs a script, which starts our applications.
+
+```bash
 setsid -f ./start_app.sh &
+```
 
-criu dump -t 3964 -D /tmp/5 -v4 -o dump.log --external 'tty[8800:17]' --shell-job --ext-unix-sk --tcp-established && echo OK
+#### 3\. Dump the application and Xvfb processes through their common parent bash
 
-criu restore -d -D /tmp/5 -v4 -o restore.log --inherit-fd 'fd[1]:tty[8800:17]' --shell-job --ext-unix-sk --tcp-established && echo OK
+```bash
+rm -rf /tmp/5 ; mkdir /tmp/5
+criu dump -t $(pgrep start_app) -D /tmp/5 -v4 -o dump.log --external $(python3 tty_code.py) --shell-job --ext-unix-sk --tcp-established && echo OK
+```
 
+#### 4\. Create new anonymous namespaces, and restore the process in there
+
+```bash
+sudo -E unshare --pid --ipc --mount --cgroup --mount-proc --fork bash
+
+criu restore -d -D /tmp/5 -v4 -o restore.log --inherit-fd 'fd[1]:'$(python3 tty_code.py) --shell-job --ext-unix-sk --tcp-established && echo OK
+```
+
+#### Trash
+
+Manual app start commands.
+
+```bash
 Xvfb :1 -screen 0 1024x768x24 +extension GLX +render -noreset \
     > /dev/null 2> /dev/null < /dev/null &
 java -jar build/libs/criu-x11-poc-1.0-SNAPSHOT-all.jar \
@@ -49,7 +113,7 @@ In [2]: st = os.stat("/proc/self/fd/0")
 In [3]: print "tty[%x:%x]" % (st.st_rdev, st.st_dev)
 tty:[8800:d]
 
-$ps -C sleep
+$ ps -C sleep
   PID TTY          TIME CMD
  4109 ?        00:00:00 sleep
 
@@ -93,6 +157,10 @@ criu dump -t 448226 -D /tmp/5 -vvv -o dump.log --shell-job --tcp-established && 
 criu restore -d -D /tmp/5 -vvv -o restore.log --tcp-established --shell-job && echo OK
 
 ```
+
+Routing to network namespaces:   
+https://hackernoon.com/routing-to-namespaces-8e1eaffaac7f   
+https://josephmuia.ca/2018-05-16-net-namespaces-veth-nat/
 
 ## cgroups
 
