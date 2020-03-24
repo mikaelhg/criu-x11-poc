@@ -91,6 +91,46 @@ sudo -E unshare --pid --ipc --mount --cgroup --mount-proc --fork bash
 criu restore -d -D /tmp/5 -v4 -o restore.log --inherit-fd 'fd[1]:'$(python3 tty_code.py) --shell-job --ext-unix-sk --tcp-established && echo OK
 ```
 
+#### 5\. Network namespaces
+
+```bash
+
+sudo ip link add name veth0 type veth peer name veth1 netns 2237407
+```
+
+## Errors
+
+When restoring, the `dconf` configuration file `$HOME/.config/dconf/user`,
+which is apparently loaded through the `libX11` initialization somehow,
+can change. 
+
+```
+(00.026277)    445: Error (criu/files-reg.c:1824): File home/mikael/.config/dconf/user has bad size 9547 (expect 9555)
+
+lsof -p 1435 | grep -v /lib
+lsof: WARNING: can't stat() fuse.gvfsd-fuse file system /run/user/1000/gvfs
+      Output information may be incomplete.
+lsof: WARNING: can't stat() fuse.jetbrains-toolbox file system /tmp/.mount_jetbraAPEOnR
+      Output information may be incomplete.
+COMMAND  PID USER   FD      TYPE             DEVICE  SIZE/OFF    NODE NAME
+java    1435 root  cwd       DIR               0,50        21 3706348 /home/mikael/devel/temp/criu-x11-poc
+java    1435 root  rtd       DIR               0,25        29      34 /
+java    1435 root  txt       REG               0,50      8768 3685336 /home/mikael/.jdks/adopt-openjdk-14/bin/java
+java    1435 root  mem       REG               0,25    100008 1101294 /usr/share/glib-2.0/schemas/gschemas.compiled
+java    1435 root  mem       REG               0,50      9547 3927808 /home/mikael/.config/dconf/user
+java    1435 root  mem       REG               0,71         2      35 /run/user/1000/dconf/user
+java    1435 root    0u      CHR              136,6       0t0       9 /dev/pts/6
+java    1435 root    1u      CHR              136,6       0t0       9 /dev/pts/6
+java    1435 root    2u      CHR              136,6       0t0       9 /dev/pts/6
+java    1435 root    5u     unix 0xffff95ce2fa08800       0t0 3388592 type=STREAM
+java    1435 root    6u  a_inode               0,14         0   12677 [eventfd]
+java    1435 root    7u  a_inode               0,14         0   12677 [eventfd]
+java    1435 root    8u  a_inode               0,14         0   12677 [eventfd]
+java    1435 root    9r     FIFO               0,13       0t0 3388594 pipe
+java    1435 root   10u  a_inode               0,14         0   12677 [eventfd]
+java    1435 root   11w     FIFO               0,13       0t0 3388594 pipe
+```
+
 #### Trash
 
 Manual app start commands.
@@ -160,7 +200,8 @@ criu restore -d -D /tmp/5 -vvv -o restore.log --tcp-established --shell-job && e
 
 Routing to network namespaces:   
 https://hackernoon.com/routing-to-namespaces-8e1eaffaac7f   
-https://josephmuia.ca/2018-05-16-net-namespaces-veth-nat/
+https://josephmuia.ca/2018-05-16-net-namespaces-veth-nat/   
+https://www.toptal.com/linux/separation-anxiety-isolating-your-system-with-linux-namespaces
 
 ## cgroups
 
