@@ -1,16 +1,8 @@
 #!/bin/bash
 
-ifconfig lo up
 
-sleep 1
-
-ifconfig lo > /tmp/net.log
-
-#echo "Starting apps"
-
+rm -f /tmp/.X99-lock
 export DISPLAY=127.0.0.1:99.0
-
-#echo "Starting "
 
 Xvfb :99 -screen 0 1024x768x24 -noreset \
         -listen inet -nolisten unix -nolisten local \
