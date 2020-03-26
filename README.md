@@ -16,13 +16,25 @@ which sometimes get cleaned up, and will block the restoration of the process.
 
 ## Running JVM AWT programs with X11 and Xvfb
 
-AWT will terminate the JVM process, if an active X11 session goes away from under it.
+1\. AWT will terminate the JVM process, if an active X11 session goes away from under it.
 
 If you try to restore a process which has lost its X11 session in this way,
 the restore will be successful, but the process will immediately die.
 
 The solution is to start a separate Xvfb process for each AWT process, push them into
 the same PID namespace, and freeze the parent process of both Xvfb and the JVM.
+
+2\. Xvfb/Xserver will start a `dbus` process for the X11 session, if it's been configured 
+to do so in the normal platform X11 configuration.
+
+In addition, some library in the X11 client initialization process will memory map a 
+`dconf` per-user configuration file, which CRIU will unfortunately expect to be exactly
+the same when restoring an image.
+
+To accomplish stability here, we can either figure out why X11 performs these initializations
+and disable them, or alternatively mark the configuration file read only, and make sure that
+it's always the same. It doesn't appear that the application needs to actually write anything
+there.
 
 ## Demo
 
@@ -31,7 +43,7 @@ the same PID namespace, and freeze the parent process of both Xvfb and the JVM.
 Start a new isolated shell, and check its namespaces.
 
 ```bash
-sudo -E unshare --pid --ipc --mount --cgroup --mount-proc --fork bash
+sudo  unshare --pid --ipc --mount --cgroup --net --mount-proc --fork bash
 
 lsns
         NS TYPE   NPROCS PID USER COMMAND
@@ -74,6 +86,9 @@ Which in turn runs a script, which starts our applications.
 
 ```bash
 setsid -f ./start_app.sh &
+
+setsid -f xvfb-run -a -l -s '+extension GLX +render -noreset -nolisten unix' \
+  /home/mikael/.jdks/adopt-openjdk-14/bin/java -XX:-UsePerfData -jar build/libs/criu-x11-poc-1.0-SNAPSHOT-all.jar
 ```
 
 #### 3\. Dump the application and Xvfb processes through their common parent bash
@@ -86,7 +101,7 @@ criu dump -t $(pgrep start_app) -D /tmp/5 -v4 -o dump.log --external $(python3 t
 #### 4\. Create new anonymous namespaces, and restore the process in there
 
 ```bash
-sudo -E unshare --pid --ipc --mount --cgroup --mount-proc --fork bash
+sudo unshare --pid --ipc --mount --cgroup --net --mount-proc --fork bash
 
 criu restore -d -D /tmp/5 -v4 -o restore.log --inherit-fd 'fd[1]:'$(python3 tty_code.py) --shell-job --ext-unix-sk --tcp-established && echo OK
 ```
@@ -104,31 +119,78 @@ When restoring, the `dconf` configuration file `$HOME/.config/dconf/user`,
 which is apparently loaded through the `libX11` initialization somehow,
 can change. 
 
+With `sudo` without `-E`, the user `root` appears to receive an extra `dbus-launch` daemon.
+
 ```
 (00.026277)    445: Error (criu/files-reg.c:1824): File home/mikael/.config/dconf/user has bad size 9547 (expect 9555)
 
-lsof -p 1435 | grep -v /lib
+lsof -nPp 258 | grep -v /lib
 lsof: WARNING: can't stat() fuse.gvfsd-fuse file system /run/user/1000/gvfs
       Output information may be incomplete.
-lsof: WARNING: can't stat() fuse.jetbrains-toolbox file system /tmp/.mount_jetbraAPEOnR
+lsof: WARNING: can't stat() fuse.jetbrains-toolbox file system /tmp/.mount_jetbraqrqAYM
       Output information may be incomplete.
-COMMAND  PID USER   FD      TYPE             DEVICE  SIZE/OFF    NODE NAME
-java    1435 root  cwd       DIR               0,50        21 3706348 /home/mikael/devel/temp/criu-x11-poc
-java    1435 root  rtd       DIR               0,25        29      34 /
-java    1435 root  txt       REG               0,50      8768 3685336 /home/mikael/.jdks/adopt-openjdk-14/bin/java
-java    1435 root  mem       REG               0,25    100008 1101294 /usr/share/glib-2.0/schemas/gschemas.compiled
-java    1435 root  mem       REG               0,50      9547 3927808 /home/mikael/.config/dconf/user
-java    1435 root  mem       REG               0,71         2      35 /run/user/1000/dconf/user
-java    1435 root    0u      CHR              136,6       0t0       9 /dev/pts/6
-java    1435 root    1u      CHR              136,6       0t0       9 /dev/pts/6
-java    1435 root    2u      CHR              136,6       0t0       9 /dev/pts/6
-java    1435 root    5u     unix 0xffff95ce2fa08800       0t0 3388592 type=STREAM
-java    1435 root    6u  a_inode               0,14         0   12677 [eventfd]
-java    1435 root    7u  a_inode               0,14         0   12677 [eventfd]
-java    1435 root    8u  a_inode               0,14         0   12677 [eventfd]
-java    1435 root    9r     FIFO               0,13       0t0 3388594 pipe
-java    1435 root   10u  a_inode               0,14         0   12677 [eventfd]
-java    1435 root   11w     FIFO               0,13       0t0 3388594 pipe
+COMMAND PID USER   FD      TYPE             DEVICE  SIZE/OFF    NODE NAME
+java    258 root  cwd       DIR               0,50        21 3706348 /home/mikael/devel/temp/criu-x11-poc
+java    258 root  rtd       DIR               0,26        29      34 /
+java    258 root  txt       REG               0,50      8768 3685336 /home/mikael/.jdks/adopt-openjdk-14/bin/java
+java    258 root  mem       REG               0,26    100008  984010 /usr/share/glib-2.0/schemas/gschemas.compiled
+java    258 root  mem       REG               0,51         2      18 /root/.cache/dconf/user
+java    258 root    0u      CHR              136,0       0t0       3 /dev/pts/0
+java    258 root    1u      CHR              136,0       0t0       3 /dev/pts/0
+java    258 root    2u      CHR              136,0       0t0       3 /dev/pts/0
+java    258 root    5u     IPv4             424303       0t0     TCP 127.0.0.1:37878->127.0.0.1:6001 (ESTABLISHED)
+java    258 root    6u  a_inode               0,14         0   12677 [eventfd]
+java    258 root    7u  a_inode               0,14         0   12677 [eventfd]
+java    258 root    8u  a_inode               0,14         0   12677 [eventfd]
+java    258 root    9u     unix 0xffff987e9a398000       0t0  431205 type=STREAM
+java    258 root   10u  a_inode               0,14         0   12677 [eventfd]
+java    258 root   11r     FIFO               0,13       0t0  417269 pipe
+java    258 root   12w     FIFO               0,13       0t0  417269 pipe
+
+ps axufwww
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root           1  0.0  0.0  12368  3148 pts/6    S    11:44   0:00 bash
+root           9  0.0  0.0   2608  1404 ?        Ss   11:44   0:00 /bin/sh /usr/bin/xvfb-run -a -l -s +extension GLX +render -noreset /home/mikael/.jdks/adopt-openjdk-14/bin/java -XX:-UsePerfData -jar build/libs/criu-x11-poc-1.0-SNAPSHOT-all.jar
+root          19  0.0  0.1 2480984 33344 ?       Sl   11:44   0:00  \_ Xvfb :99 +extension GLX +render -noreset -auth /tmp/xvfb-run.bXlQgk/Xauthority
+root          54  0.1  0.1 11953560 55808 ?      Sl   11:44   0:00  \_ /home/mikael/.jdks/adopt-openjdk-14/bin/java -XX:-UsePerfData -jar build/libs/criu-x11-poc-1.0-SNAPSHOT-all.jar
+root          80  0.0  0.0   7128  1880 ?        S    11:44   0:00 dbus-launch --autolaunch=5893f493f747485fa557d207fdf91dc0 --binary-syntax --close-stderr
+root          81  0.0  0.0   7148  2184 ?        Ss   11:44   0:00 /usr/bin/dbus-daemon --syslog-only --fork --print-pid 5 --print-address 7 --session
+
+$ grep -r libgio /home/mikael/.jdks/adopt-openjdk-14/
+Binary file /home/mikael/.jdks/adopt-openjdk-14/lib/libawt_xawt.so matches
+Binary file /home/mikael/.jdks/adopt-openjdk-14/lib/libawt_headless.so matches
+Binary file /home/mikael/.jdks/adopt-openjdk-14/lib/libnet.so matches
+Binary file /home/mikael/.jdks/adopt-openjdk-14/lib/libsplashscreen.so matches
+Binary file /home/mikael/.jdks/adopt-openjdk-14/lib/libawt.so matches
+mikael@gumidesk:~$ strings /home/mikael/.jdks/adopt-openjdk-14/lib/libawt.so | grep libgio
+@libgio-2.0.so
+libgio-2.0.so.0
+mikael@gumidesk:~$ strings /home/mikael/.jdks/adopt-openjdk-14/lib/libawt_xawt.so | grep libgio
+libgio-2.0.so
+libgio-2.0.so.0
+mikael@gumidesk:~$ strings /home/mikael/.jdks/adopt-openjdk-14/lib/libawt_headless.so | grep libgio
+libgio-2.0.so
+libgio-2.0.so.0
+
+sudo grep -r dbus /etc/X11
+/etc/X11/Xsession.options:use-session-dbus
+/etc/X11/Xsession.d/75dbus_dbus-launch:# simply place use-session-dbus into your /etc/X11/Xsession.options file
+/etc/X11/Xsession.d/75dbus_dbus-launch:DBUSLAUNCH=/usr/bin/dbus-launch
+/etc/X11/Xsession.d/75dbus_dbus-launch:if has_option use-session-dbus; then
+/etc/X11/Xsession.d/75dbus_dbus-launch:  # 95dbus_update-activation-env will not have the complete environment
+/etc/X11/Xsession.d/75dbus_dbus-launch:  # environment variable also calls dbus-update-activation-environment.
+/etc/X11/Xsession.d/70im-config_launch:# The hook script for dbus-launch is in 75 which changes $STARTUP string.
+/etc/X11/Xsession.d/70im-config_launch:# This shuld be befor this dbus-launch hook to ensure the working dbus
+/etc/X11/Xsession.d/95dbus_update-activation-env:    [ -x "/usr/bin/dbus-update-activation-environment" ]; then
+/etc/X11/Xsession.d/95dbus_update-activation-env:    # tell dbus-daemon --session (and systemd --user, if running)
+/etc/X11/Xsession.d/95dbus_update-activation-env:    dbus-update-activation-environment --verbose --systemd --all
+/etc/X11/Xsession.d/90qt-a11y:if [ -x "/usr/bin/dbus-update-activation-environment" ]; then
+/etc/X11/Xsession.d/90qt-a11y:        dbus-update-activation-environment --verbose --systemd QT_ACCESSIBILITY
+/etc/X11/Xsession.d/20dbus_xdg-runtime:  # Be nice to non-libdbus, non-sd-bus implementations by using
+/etc/X11/Xsession.d/20dbus_xdg-runtime:if [ -x "/usr/bin/dbus-update-activation-environment" ]; then
+/etc/X11/Xsession.d/20dbus_xdg-runtime:  # tell dbus-daemon --session (and systemd --user, if running)
+/etc/X11/Xsession.d/20dbus_xdg-runtime:  dbus-update-activation-environment --verbose --systemd \
+
 ```
 
 #### Trash
@@ -138,6 +200,9 @@ Manual app start commands.
 ```bash
 Xvfb :1 -screen 0 1024x768x24 +extension GLX +render -noreset \
     > /dev/null 2> /dev/null < /dev/null &
+
+Xvfb :1 -screen 0 1024x768x24 +extension GLX +render -noreset -listen inet -nolisten unix -nolisten local
+
 java -jar build/libs/criu-x11-poc-1.0-SNAPSHOT-all.jar \
     > /dev/null 2> /dev/null < /dev/null &
 ```

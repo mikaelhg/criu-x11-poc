@@ -2,7 +2,8 @@
 
 echo "Running unshare -> setsid"
 
-unshare --pid --ipc --mount --cgroup --mount-proc --fork --
-  sh -c 'setsid -f ./start_app.sh'
+unshare --pid --net --uts --ipc --mount --cgroup \
+  --mount-proc --fork -- \
+    setsid -f ./start_app.sh
 
 echo "Done with unshare -> setsid"
