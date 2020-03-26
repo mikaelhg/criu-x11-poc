@@ -36,6 +36,39 @@ and disable them, or alternatively mark the configuration file read only, and ma
 it's always the same. It doesn't appear that the application needs to actually write anything
 there.
 
+## Process group leader inside the isolated PID namespace
+
+When dumping a process inside a PID namespace, CRIU requires the process group leader
+to be inside that same PID namespace. Therefore, you have to use `setsid` to assign a
+new process group leader as a parent to both the `Xvfb` and the `java` processes.
+
+## Demo inside Docker
+
+```bash
+docker build -t criu-x11-poc .
+
+docker run -it --rm -v `pwd`:/app -v /tmp/data/dump:/data/dump -w /app \
+  --privileged -v /lib/modules:/lib/modules:ro --tmpfs /run \
+  criu-x11-poc:latest bash
+
+# 
+# yum install -y util-linux procps lsof iptables criu xorg-x11-server-Xvfb libXrender libXtst python3 less
+
+setsid ./03_start_processes.sh
+
+criu dump -t $(pgrep -f 03_start) -D /data/dump -v4 -o dump.log --external $(python3 tty_code.py) --tcp-established && echo OK
+
+CTRL-D
+
+docker run -it --rm -v `pwd`:/app -v /tmp/data/dump:/data/dump -w /app \
+  --privileged -v /lib/modules:/lib/modules:ro --tmpfs /run \
+  criu-x11-poc:latest bash
+
+# yum install -y util-linux procps lsof iptables criu xorg-x11-server-Xvfb libXrender libXtst python3 less
+
+criu restore -d -D /data/dump -v4 -o restore.log --inherit-fd 'fd[1]:'$(python3 tty_code.py) --tcp-established && echo OK
+```
+
 ## Demo
 
 #### 1\. Fork a new, isolated, bash process 

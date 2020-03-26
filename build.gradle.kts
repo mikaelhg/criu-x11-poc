@@ -23,6 +23,9 @@ tasks {
     application {
         mainClassName = "io.mikael.poc.Application"
     }
+    shadowJar {
+        archiveFileName.set("app.jar")
+    }
     compileKotlin {
         kotlinOptions.jvmTarget = "11"
     }
