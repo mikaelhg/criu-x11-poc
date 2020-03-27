@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/setsid /bin/bash
 
 
 rm -f /tmp/.X99-lock
