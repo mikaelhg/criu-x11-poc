@@ -1,5 +1,6 @@
 #!/usr/bin/setsid /bin/bash
 
+## NOTICE THE SETSID ON THE FIRST LINE, WITHOUT THAT SETSID THIS DOESN'T WORK!!!
 
 rm -f /tmp/.X99-lock
 export DISPLAY=127.0.0.1:99.0
