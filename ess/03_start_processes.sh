@@ -5,8 +5,7 @@
 rm -f /tmp/.X99-lock
 export DISPLAY=127.0.0.1:99.0
 
-Xvfb :99 -screen 0 1024x768x24 \
-        +extension GLX +render -noreset \
+Xvfb :99 -screen 0 1024x768x24 -noreset \
         -listen inet -nolisten unix -nolisten local \
     > /dev/null 2> /dev/null < /dev/null &
 #    > /tmp/xvfb.log 2> /tmp/xvfb.err < /dev/null &
