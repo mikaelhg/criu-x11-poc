@@ -45,6 +45,8 @@ new process group leader as a parent to both the `Xvfb` and the `java` processes
 ## Demo inside Docker
 
 ```bash
+./gradlew build
+
 docker build -t criu-x11-poc .
 
 ./00_docker_run.sh

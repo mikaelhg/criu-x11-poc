@@ -15,7 +15,7 @@ xvfb_pid=$!
 sleep 1
 
 java -XX:-UsePerfData -Xmx32m \
-  -jar build/libs/criu-x11-poc-1.0-SNAPSHOT-all.jar \
+  -jar build/libs/app.jar \
     > /dev/null 2> /dev/null < /dev/null &
 #    > /tmp/app.log 2> /tmp/app.err < /dev/null &
 
