@@ -26,9 +26,11 @@ def start_container(client, image, basedir):
         detach=True, remove=True)
     return container
 
-def test_software(i):
-    requests.get()
-    pass
+def test_software(i, url):
+    for _ in range(0, 2):
+        result = requests.get(url)
+        if result.status_code <> 200:
+            print(f'''Iteration {i} failed. Application test failed with code {result.status_code}.''')
 
 def main(args):
     client = docker.from_env()
