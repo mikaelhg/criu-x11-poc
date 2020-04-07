@@ -17,3 +17,5 @@ node_modules/
 /dump.*
 /application-default.yml
 node_modules/
+ess/*.jar
+ess/projects

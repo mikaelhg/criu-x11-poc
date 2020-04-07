@@ -14,8 +14,11 @@ xvfb_pid=$!
 
 sleep 1
 
-java -XX:-UsePerfData -Xmx32m \
-  -jar build/libs/app.jar \
+java -XX:-UsePerfData -Xmx4g \
+  -Dcom.ekahau.web.project-root-dir=/app/ess/projects \
+  -Dprism.order=sw -Dprism.verbose=true \
+  -Dserver.tomcat.basedir=tomcat -Dserver.tomcat.accesslog.enabled=false \
+  -jar /app/ess/app.jar \
     > /dev/null 2> /dev/null < /dev/null &
 #    > /tmp/app.log 2> /tmp/app.err < /dev/null &
 
