@@ -69,9 +69,9 @@ def main(args):
     container.stop()
 
     for i in range(1, args.loops):
+        sleep(2)
         print(f'Starting container...')
         container = start_container(client, args.image, args.basedir)
-        sleep(2)
 
         print(f'Restoring process...')
         exit_code, output = container.exec_run('./05_restore_processes.sh', privileged=True, tty=True)

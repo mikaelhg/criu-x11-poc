@@ -9,6 +9,12 @@ have to be just right.
 This POC explores just exactly how to control those conditions, so that CRIU will
 do its job predictably every time.
 
+## Building CRIU for Amazon Linux 2
+
+The CRIU build is silently dependent on the `which` command being available,
+or the build will fail with the error "`basename: missing operand`". Thus,
+we need to install the `which` package.
+
 ## Running the JVM with CRIU.
 
 Set `-XX:-UsePerfData` so that the JVM won't create the perf data directories and files
@@ -52,7 +58,7 @@ docker build -t criu-x11-poc .
 ./00_docker_run.sh
 
 # now inside the Docker container...
-./03_start_processes.sh
+./02_set_process_id.sh ./03_start_processes.sh
 
 ps axufwww
 

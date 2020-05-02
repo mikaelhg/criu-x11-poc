@@ -3,7 +3,7 @@
 ## NOTICE THE SETSID ON THE FIRST LINE, WITHOUT THAT SETSID THIS DOESN'T WORK!!!
 
 DUMP_DIR=/data/dump
-
+export DCONF_PROFILE=/data/dconf
 
 rm -f /tmp/.X99-lock
 export DISPLAY=127.0.0.1:99.0
