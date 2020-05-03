@@ -42,6 +42,8 @@ and disable them, or alternatively mark the configuration file read only, and ma
 it's always the same. It doesn't appear that the application needs to actually write anything
 there.
 
+Look at initializing the `dconf` profile with a `DCONF_PROFILE` environment variable.
+
 ## Running CRIU with Docker
 
 CRIU requires Docker 19.03.6+, containerd 1.3.3+, and runc 1.0.0+.
