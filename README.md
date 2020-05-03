@@ -42,6 +42,14 @@ and disable them, or alternatively mark the configuration file read only, and ma
 it's always the same. It doesn't appear that the application needs to actually write anything
 there.
 
+## Running CRIU with Docker
+
+CRIU requires Docker 19.03.6+, containerd 1.3.3+, and runc 1.0.0+.
+
+Linux kernel 5.4+, WITHOUT Ubuntu's overlayfs patches, which will cause a crash in restore.
+
+You MUST run the container, and commands, as privileged, and mount the kernel's modules.
+
 ## Process group leader inside the isolated PID namespace
 
 When dumping a process inside a PID namespace, CRIU requires the process group leader
