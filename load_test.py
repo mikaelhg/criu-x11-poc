@@ -15,6 +15,9 @@ def start_container(client, image, basedir):
         '/tmp/data/dump': {
             'bind': '/data/dump',
         },
+        '/tmp/data/dconf': {
+            'bind': '/data/dconf',
+        },
         '/lib/modules': {
             'bind': '/lib/modules',
             'mode': 'ro'
@@ -40,47 +43,50 @@ def test_software(i, url):
 
 def main(args):
     client = docker.from_env()
-    print(f'Starting container...')
+    print(f'Docker: Starting container...')
     container = start_container(client, args.image, args.basedir)
 
-    print(f'CRIU check...')
+    print(f'CRIU: Check...')
     exit_code, output = container.exec_run('criu check --all', privileged=True, tty=True)
-    print(exit_code, output)
+    print(exit_code, output.decode('utf-8'))
 
-    print(f'Starting processes...')
+    print(f'Docker: Starting processes...')
     exit_code, output = container.exec_run('./02_set_process_id.sh ./03_start_processes.sh', privileged=True, tty=True)
-    print(exit_code, output)
+    print(exit_code, output.decode('utf-8'))
     if exit_code != 0:
         container.stop()
         exit(1)
     sleep(2)
 
-    test_software(0, args.url)
+    # test_software(0, args.url)
 
-    print(f'Dumping...')
+    print(f'CRIU: Dumping...')
     exit_code, output = container.exec_run('./04_dump_processes.sh', privileged=True, tty=True)
-    print(exit_code, output)
+    print(exit_code, output.decode('utf-8'))
     if exit_code != 0:
         container.stop()
         exit(1)
     sleep(2)
 
-    print(f'Stopping container...')
+    print(f'Docker: Stopping container...')
     container.stop()
 
     for i in range(1, args.loops):
-        sleep(2)
-        print(f'Starting container...')
+        # sleep(2)
+        print(f'Docker: Starting container...')
         container = start_container(client, args.image, args.basedir)
 
-        print(f'Restoring process...')
+        print(f'CRIU: Restoring process...')
         exit_code, output = container.exec_run('./05_restore_processes.sh', privileged=True, tty=True)
-        print(exit_code, output)
-        sleep(2)
+        print(exit_code, output.decode('utf-8'))
+        # sleep(2)
 
-        test_software(i, args.url)
+        exit_code, output = container.exec_run('ps axufwww', privileged=True, tty=True)
+        print(exit_code, output.decode('utf-8'))
 
-        print(f'Stopping container...')
+        # test_software(i, args.url)
+
+        print(f'Docker: Stopping container...')
         container.stop()
 
         if exit_code != 0:
@@ -90,7 +96,7 @@ def main(args):
 
 def parse_arguments():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-l', '--loops', type=int, help='Loops', default=512)
+    parser.add_argument('-l', '--loops', type=int, help='Loops', default=32)
     parser.add_argument('-i', '--image', help='Docker image', default='criu-x11-poc')
     parser.add_argument('-b', '--basedir', help='Base directory', default=os.getcwd())
     parser.add_argument('-u', '--url', help='App test URL', default='http://localhost:8080/')
