@@ -58,6 +58,20 @@ When dumping a process inside a PID namespace, CRIU requires the process group l
 to be inside that same PID namespace. Therefore, you have to use `setsid` to assign a
 new process group leader as a parent to both the `Xvfb` and the `java` processes.
 
+## Setting a high enough PID for your application
+
+When running your application, you want all of its threads to acquire high enough PIDs
+that when you initialize a new process namespace by, say, creating a new Docker container,
+the first few commands you run in that new process namespace, won't reserve any of the
+PIDs you'll need for the restore.
+
+To accomplish this, you should explicitly set the previous PID value before starting your
+application.
+
+```
+echo 10000 > /proc/sys/kernel/ns_last_pid
+```
+
 ## Demo inside Docker
 
 ```bash
