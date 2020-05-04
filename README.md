@@ -72,6 +72,20 @@ application.
 echo 10000 > /proc/sys/kernel/ns_last_pid
 ```
 
+## Load test
+
+Before running the load test, or the Docker demo, you should make sure that your 
+host system kernel has a sufficient store of entropy to feed its pseudorandom number
+generator in order to allow the X11 components to start up properly. You can feed the
+system some entropy by running some trivial command line programs such as `w` or `ls`. 
+
+```
+virtualenv -p /usr/bin/python3 venv
+source venv/bin/activate
+pip install docker
+python load_test.py -l 8
+```
+
 ## Demo inside Docker
 
 ```bash
