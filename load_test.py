@@ -62,6 +62,9 @@ def main(args):
         container.stop()
         exit(1)
 
+    # wait for the application to start
+    sleep(2)
+
     # test_software(0, args.url)
 
     for i in range(1, args.loops):
