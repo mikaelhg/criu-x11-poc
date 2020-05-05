@@ -49,49 +49,50 @@ def main(args):
     print(f'CRIU: Check...')
     exit_code, output = container.exec_run('criu check --all', privileged=True, tty=True)
     print(exit_code, output.decode('utf-8'))
+    if exit_code != 0:
+        print(f'CRIU: ERROR: Failed kernel checks.')
+        container.stop()
+        exit(1)
 
     print(f'Docker: Starting processes...')
     exit_code, output = container.exec_run('./02_set_process_id.sh ./03_start_processes.sh', privileged=True, tty=True)
     print(exit_code, output.decode('utf-8'))
     if exit_code != 0:
+        print(f'Docker: ERROR: Failed to start processes.')
         container.stop()
         exit(1)
-    sleep(2)
 
     # test_software(0, args.url)
 
-    print(f'CRIU: Dumping...')
-    exit_code, output = container.exec_run('./04_dump_processes.sh', privileged=True, tty=True)
-    print(exit_code, output.decode('utf-8'))
-    if exit_code != 0:
-        container.stop()
-        exit(1)
-    sleep(2)
-
-    print(f'Docker: Stopping container...')
-    container.stop()
-
     for i in range(1, args.loops):
-        # sleep(2)
+
+        print(f'CRIU: Dumping...')
+        exit_code, output = container.exec_run('./04_dump_processes.sh', privileged=True, tty=True)
+        print(exit_code, output.decode('utf-8'))
+        if exit_code != 0:
+            print(f'CRIU: ERROR: Failed to dump.')
+            container.stop()
+            exit(1)
+
+        print(f'Docker: Stopping container...')
+        container.stop()
+
         print(f'Docker: Starting container...')
         container = start_container(client, args.image, args.basedir)
 
         print(f'CRIU: Restoring process...')
         exit_code, output = container.exec_run('./05_restore_processes.sh', privileged=True, tty=True)
         print(exit_code, output.decode('utf-8'))
-        # sleep(2)
+        if exit_code != 0:
+            print(f'''CRIU: ERROR: Iteration {i} failed. Couldn't restore.''')
+            exit(1)
 
         exit_code, output = container.exec_run('ps axufwww', privileged=True, tty=True)
         print(exit_code, output.decode('utf-8'))
 
         # test_software(i, args.url)
 
-        print(f'Docker: Stopping container...')
-        container.stop()
-
-        if exit_code != 0:
-            print(f'''Iteration {i} failed. Couldn't restore.''')
-            exit(1)
+    container.stop()
 
 
 def parse_arguments():
