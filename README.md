@@ -46,7 +46,7 @@ Look at initializing the `dconf` profile with a `DCONF_PROFILE` environment vari
 
 ## Running CRIU with Docker
 
-CRIU requires Docker 19.03.6+, containerd 1.3.3+, and runc 1.0.0+.
+CRIU requires Docker 19.03.6+, containerd 1.3+, and runc 1.0.0+.
 
 Linux kernel 5.4+, WITHOUT Ubuntu's overlayfs patches, which will cause a crash in restore.
 

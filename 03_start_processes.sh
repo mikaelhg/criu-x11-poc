@@ -2,7 +2,6 @@
 
 ## NOTICE THE SETSID ON THE FIRST LINE, WITHOUT THAT SETSID THIS DOESN'T WORK!!!
 
-DUMP_DIR=/data/dump
 export DCONF_PROFILE=/data/dconf
 
 rm -f /tmp/.X99-lock
@@ -16,7 +15,7 @@ Xvfb :99 -screen 0 1024x768x24 \
 
 xvfb_pid=$!
 
-sleep 1
+sleep 0.2
 
 java -XX:-UsePerfData -Xmx32m \
   -jar build/libs/app.jar \

@@ -6,8 +6,11 @@ import docker
 import os
 from time import sleep
 
+from docker import DockerClient
+from docker.models.containers import Container
 
-def start_container(client, image, basedir):
+
+def start_container(client: DockerClient, image: str, basedir: str) -> Container:
     volumes = {
         basedir: {
             'bind': '/app',
@@ -24,14 +27,14 @@ def start_container(client, image, basedir):
         },
     }
     tmpfs = {'/run': ''}
-    container = client.containers.run(image, command='/bin/sleep 3600',
+    container = client.containers.run(image, command='/bin/sleep infinity',
         init=True, tty=True,
         volumes=volumes, tmpfs=tmpfs, privileged=True, working_dir='/app',
         detach=True, remove=True)
     return container
 
 
-def test_software(i, url):
+def test_software(i: int, url: str):
     for _ in range(0, 2):
         try:
             result = requests.get(url)
@@ -42,7 +45,7 @@ def test_software(i, url):
 
 
 def main(args):
-    client = docker.from_env()
+    client: DockerClient = docker.from_env()
     print(f'Docker: Starting container...')
     container = start_container(client, args.image, args.basedir)
 
@@ -100,7 +103,7 @@ def main(args):
 
 def parse_arguments():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('-l', '--loops', type=int, help='Loops', default=32)
+    parser.add_argument('-l', '--loops', type=int, help='Loops', default=8)
     parser.add_argument('-i', '--image', help='Docker image', default='criu-x11-poc')
     parser.add_argument('-b', '--basedir', help='Base directory', default=os.getcwd())
     parser.add_argument('-u', '--url', help='App test URL', default='http://localhost:8080/')
